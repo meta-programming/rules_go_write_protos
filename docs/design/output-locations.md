@@ -114,7 +114,7 @@ By default, the synced destination files in the source tree are mapped directly 
 ├── pkg/
 │   ├── user/
 │   │   ├── BUILD.bazel
-│   │   ├── user.proto
+/>   │   ├── user.proto
 │   │   └── user.pb.go        <-- Synced from bazel-bin
 │   └── billing/
 │       ├── BUILD.bazel
@@ -175,9 +175,9 @@ if importpath in ctx.attr.out_dir_map:
 
 ## Unmapped Target Behavior Policy
 
-If `out_dir_map` is specified but a source target is missing from the dictionary, we define a validation policy via `out_dir_map_mode` to clarify developer intent and ensure repository correctness.
+If `out_dir_map` is specified but a source target is missing from the dictionary, we define a validation policy via `out_dir_map_strictness` to clarify developer intent and ensure repository correctness.
 
-We propose the following validation modes for `out_dir_map_mode` (default is `"local"`):
+We propose the following validation modes for `out_dir_map_strictness` (default is `"local"`):
 
 | Mode | Behavior | Description |
 | :--- | :--- | :--- |
