@@ -194,9 +194,3 @@ We propose the following validation modes for `out_dir_map_strictness` (default 
 **A**: Generally yes, because 3rd-party dependencies should be fetched and compiled hermetically rather than duplicated in the local workspace source tree. However, under air-gapped or offline deployment constraints, teams might need to vendor all generated code locally.
 
 If this is required, we can introduce a boolean `sync_external_deps` attribute (defaulting to `False`). If set to `True`, the aspect will include external dependencies, and they can be mapped under a custom vendor folder (e.g. `vendor/github.com/example/other_module/...`).
-
-<br/>
-
-**Q**: Could `out_dir_map` be based on the Go package name (importpath) instead of the Bazel target label?
-
-**A**: Yes, and this is our primary mapping design option. Aligning directory overrides to Go packages is standard practice and keeps the workspace config stable even when internal Bazel target labels are reorganized.

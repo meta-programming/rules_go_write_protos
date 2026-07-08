@@ -9,7 +9,7 @@
 <pre>
 load("@rules_go_write_protos//rules:defs.bzl", "GoProtoSrcsInfo")
 
-GoProtoSrcsInfo(<a href="#GoProtoSrcsInfo-files">files</a>, <a href="#GoProtoSrcsInfo-mappings">mappings</a>)
+GoProtoSrcsInfo(<a href="#GoProtoSrcsInfo-files">files</a>, <a href="#GoProtoSrcsInfo-mappings">mappings</a>, <a href="#GoProtoSrcsInfo-file_to_importpath">file_to_importpath</a>)
 </pre>
 
 Info about generated Go protobuf source files
@@ -20,6 +20,7 @@ Info about generated Go protobuf source files
 | :------------- | :------------- |
 | <a id="GoProtoSrcsInfo-files"></a>files |  depset of generated files    |
 | <a id="GoProtoSrcsInfo-mappings"></a>mappings |  dict mapping generated file path to source tree destination path    |
+| <a id="GoProtoSrcsInfo-file_to_importpath"></a>file_to_importpath |  dict mapping generated file path to its target importpath    |
 
 
 <a id="WriteProtoConfigInfo"></a>
@@ -29,7 +30,7 @@ Info about generated Go protobuf source files
 <pre>
 load("@rules_go_write_protos//rules:defs.bzl", "WriteProtoConfigInfo")
 
-WriteProtoConfigInfo(<a href="#WriteProtoConfigInfo-files">files</a>, <a href="#WriteProtoConfigInfo-mappings">mappings</a>, <a href="#WriteProtoConfigInfo-checked_in_files">checked_in_files</a>)
+WriteProtoConfigInfo(<a href="#WriteProtoConfigInfo-files">files</a>, <a href="#WriteProtoConfigInfo-mappings">mappings</a>, <a href="#WriteProtoConfigInfo-checked_in_files">checked_in_files</a>, <a href="#WriteProtoConfigInfo-file_to_importpath">file_to_importpath</a>)
 </pre>
 
 Provider to propagate sync configs
@@ -41,6 +42,7 @@ Provider to propagate sync configs
 | <a id="WriteProtoConfigInfo-files"></a>files |  depset of generated files    |
 | <a id="WriteProtoConfigInfo-mappings"></a>mappings |  dict mapping generated file path to destination path    |
 | <a id="WriteProtoConfigInfo-checked_in_files"></a>checked_in_files |  depset of checked-in source files    |
+| <a id="WriteProtoConfigInfo-file_to_importpath"></a>file_to_importpath |  dict mapping generated file path to target importpath    |
 
 
 <a id="write_go_proto_srcs"></a>
@@ -51,7 +53,7 @@ Provider to propagate sync configs
 load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_srcs")
 
 write_go_proto_srcs(<a href="#write_go_proto_srcs-name">name</a>, <a href="#write_go_proto_srcs-srcs">srcs</a>, <a href="#write_go_proto_srcs-additional_update_targets">additional_update_targets</a>, <a href="#write_go_proto_srcs-diff_test">diff_test</a>, <a href="#write_go_proto_srcs-verbosity">verbosity</a>,
-                    <a href="#write_go_proto_srcs-suggested_update_target">suggested_update_target</a>, <a href="#write_go_proto_srcs-kwargs">**kwargs</a>)
+                    <a href="#write_go_proto_srcs-suggested_update_target">suggested_update_target</a>, <a href="#write_go_proto_srcs-out_dir">out_dir</a>, <a href="#write_go_proto_srcs-out_dir_map">out_dir_map</a>, <a href="#write_go_proto_srcs-out_dir_map_strictness">out_dir_map_strictness</a>, <a href="#write_go_proto_srcs-kwargs">**kwargs</a>)
 </pre>
 
 Registers targets to synchronize and verify generated Go protobuf files.
@@ -75,6 +77,9 @@ This macro instantiates:
 | <a id="write_go_proto_srcs-diff_test"></a>diff_test |  If True, generates a corresponding `{name}_test` target.   |  `True` |
 | <a id="write_go_proto_srcs-verbosity"></a>verbosity |  Verbosity level of the sync command outputs. One of `"full"`, `"short"`, or `"quiet"`.   |  `"full"` |
 | <a id="write_go_proto_srcs-suggested_update_target"></a>suggested_update_target |  An optional suggested sync target path to print in the test failure error messages (e.g. `//:update_protos`).   |  `None` |
+| <a id="write_go_proto_srcs-out_dir"></a>out_dir |  An optional package-level directory override. If specified, all generated files will be synchronized directly into this folder.   |  `None` |
+| <a id="write_go_proto_srcs-out_dir_map"></a>out_dir_map |  An optional string dictionary mapping Go importpath strings (e.g., `"github.com/example/project/pkg/foo"`) to custom destination directories.   |  `{}` |
+| <a id="write_go_proto_srcs-out_dir_map_strictness"></a>out_dir_map_strictness |  The policy to handle targets processed by the aspect that are not specified in the `out_dir_map` configuration. One of `"strict"` (fail on any missing target), `"local"` (fail on missing local workspace targets), or `"loose"` (silently fall back).   |  `"local"` |
 | <a id="write_go_proto_srcs-kwargs"></a>kwargs |  Common target attributes like `visibility`, `tags`, etc.   |  none |
 
 

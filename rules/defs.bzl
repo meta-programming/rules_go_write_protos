@@ -3,6 +3,7 @@ GoProtoSrcsInfo = provider(
     fields = {
         "files": "depset of generated files",
         "mappings": "dict mapping generated file path to source tree destination path",
+        "file_to_importpath": "dict mapping generated file path to its target importpath",
     },
 )
 
@@ -13,6 +14,10 @@ def _collect_go_proto_srcs_impl(target, ctx):
 
     files = []
     mappings = {}
+    file_to_importpath = {}
+    
+    # Get direct target importpath if available (e.g. from go_proto_library attributes)
+    importpath = getattr(ctx.rule.attr, "importpath", "")
     
     # 1. Collect from direct target's 'go_generated_srcs' output group
     if OutputGroupInfo in target:
@@ -22,6 +27,8 @@ def _collect_go_proto_srcs_impl(target, ctx):
                 # Map the file to target's package + base name
                 dest = target.label.package + "/" + f.basename if target.label.package else f.basename
                 mappings[f.path] = dest
+                if importpath:
+                    file_to_importpath[f.path] = importpath
                 
     # 2. Transitive collection from deps/embed
     for attr in ["deps", "embed"]:
@@ -30,11 +37,14 @@ def _collect_go_proto_srcs_impl(target, ctx):
                 if GoProtoSrcsInfo in dep:
                     files.extend(dep[GoProtoSrcsInfo].files.to_list())
                     mappings.update(dep[GoProtoSrcsInfo].mappings)
+                    if hasattr(dep[GoProtoSrcsInfo], "file_to_importpath"):
+                        file_to_importpath.update(dep[GoProtoSrcsInfo].file_to_importpath)
                     
     return [
         GoProtoSrcsInfo(
             files = depset(files),
             mappings = mappings,
+            file_to_importpath = file_to_importpath,
         ),
     ]
 
@@ -49,12 +59,17 @@ WriteProtoConfigInfo = provider(
         "files": "depset of generated files",
         "mappings": "dict mapping generated file path to destination path",
         "checked_in_files": "depset of checked-in source files",
+        "file_to_importpath": "dict mapping generated file path to target importpath",
     }
 )
 
 def _write_go_proto_srcs_impl(ctx):
+    if ctx.attr.out_dir and ctx.attr.out_dir_map:
+        fail("Cannot set both out_dir and out_dir_map on target %s." % ctx.label)
+
     generated_files = []
     mappings = {}
+    file_to_importpath = {}
     checked_in_files = list(ctx.files.checked_in_files)
     
     # 1. Collect from direct targets (srcs)
@@ -62,6 +77,8 @@ def _write_go_proto_srcs_impl(ctx):
         if GoProtoSrcsInfo in src:
             generated_files.extend(src[GoProtoSrcsInfo].files.to_list())
             mappings.update(src[GoProtoSrcsInfo].mappings)
+            if hasattr(src[GoProtoSrcsInfo], "file_to_importpath"):
+                file_to_importpath.update(src[GoProtoSrcsInfo].file_to_importpath)
             
     # 2. Collect from additional_update_targets
     for target in ctx.attr.additional_update_targets:
@@ -69,6 +86,8 @@ def _write_go_proto_srcs_impl(ctx):
             generated_files.extend(target[WriteProtoConfigInfo].files.to_list())
             mappings.update(target[WriteProtoConfigInfo].mappings)
             checked_in_files.extend(target[WriteProtoConfigInfo].checked_in_files.to_list())
+            if hasattr(target[WriteProtoConfigInfo], "file_to_importpath"):
+                file_to_importpath.update(target[WriteProtoConfigInfo].file_to_importpath)
             
     if not generated_files and not ctx.attr.additional_update_targets:
         fail("No generated Go proto files found in the provided targets.")
@@ -82,6 +101,24 @@ def _write_go_proto_srcs_impl(ctx):
     for f in checked_in_files:
         unique_checked_in[f.path] = f
         
+    # Resolve mapped destination paths
+    final_mappings = {}
+    for f in unique_files.values():
+        dest = mappings[f.path]
+        importpath = file_to_importpath.get(f.path, "")
+        
+        if ctx.attr.out_dir:
+            dest = ctx.attr.out_dir + "/" + f.basename
+        elif ctx.attr.out_dir_map:
+            if importpath in ctx.attr.out_dir_map:
+                dest = ctx.attr.out_dir_map[importpath] + "/" + f.basename
+            else:
+                if ctx.attr.out_dir_map_strictness in ["strict", "local"]:
+                    fail("Importpath '%s' of generated file '%s' is not mapped in out_dir_map." % (importpath, f.path))
+                # If loose, keep default package destination
+        
+        final_mappings[f.path] = dest
+
     # Generate JSON config
     config_file = ctx.actions.declare_file(ctx.label.name + ".json")
     ctx.actions.write(
@@ -92,7 +129,7 @@ def _write_go_proto_srcs_impl(ctx):
             suggested_update_target = ctx.attr.suggested_update_target,
             files = [struct(
                 src = ctx.workspace_name + "/" + f.short_path if not f.short_path.startswith("../") else f.short_path[3:],
-                dest = mappings[f.path],
+                dest = final_mappings[f.path],
             ) for f in unique_files.values()],
         ))
     )
@@ -119,8 +156,9 @@ def _write_go_proto_srcs_impl(ctx):
         ),
         WriteProtoConfigInfo(
             files = depset(unique_files.values()),
-            mappings = mappings,
+            mappings = final_mappings,
             checked_in_files = depset(unique_checked_in.values()),
+            file_to_importpath = file_to_importpath,
         ),
     ]
 
@@ -145,6 +183,16 @@ _write_go_proto_srcs_rule = rule(
         ),
         "suggested_update_target": attr.string(
             mandatory = False,
+        ),
+        "out_dir": attr.string(
+            mandatory = False,
+        ),
+        "out_dir_map": attr.string_dict(
+            mandatory = False,
+        ),
+        "out_dir_map_strictness": attr.string(
+            default = "local",
+            values = ["strict", "local", "loose"],
         ),
         "_syncer_tool": attr.label(
             default = "//tools/copy_generated_proto_sources",
@@ -188,6 +236,9 @@ def write_go_proto_srcs(
         diff_test = True,
         verbosity = "full",
         suggested_update_target = None,
+        out_dir = None,
+        out_dir_map = {},
+        out_dir_map_strictness = "local",
         **kwargs):
     """Registers targets to synchronize and verify generated Go protobuf files.
 
@@ -210,10 +261,53 @@ def write_go_proto_srcs(
             `"short"`, or `"quiet"`.
         suggested_update_target: An optional suggested sync target path to print
             in the test failure error messages (e.g. `//:update_protos`).
+        out_dir: An optional package-level directory override. If specified,
+            all generated files will be synchronized directly into this folder.
+        out_dir_map: An optional string dictionary mapping Go importpath strings
+            (e.g., `"github.com/example/project/pkg/foo"`) to custom destination
+            directories.
+        out_dir_map_strictness: The policy to handle targets processed by the
+            aspect that are not specified in the `out_dir_map` configuration.
+            One of `"strict"` (fail on any missing target), `"local"` (fail on
+            missing local workspace targets), or `"loose"` (silently fall back).
         **kwargs: Common target attributes like `visibility`, `tags`, etc.
     """
-    # Glob the checked-in files in the current package directory
-    checked_in_files = native.glob(["*.pb.go"], allow_empty = True)
+    # Determine the package-relative paths to glob for checked-in files.
+    checked_in_patterns = []
+    package = native.package_name()
+    
+    if out_dir:
+        # Strip the current package name prefix from the output path
+        rel = out_dir
+        if package != "":
+            prefix = package + "/"
+            if out_dir.startswith(prefix):
+                rel = out_dir[len(prefix):]
+            elif out_dir == package:
+                rel = ""
+            else:
+                rel = None
+        if rel != None:
+            checked_in_patterns.append(rel + "/*.pb.go" if rel else "*.pb.go")
+    elif out_dir_map:
+        for path in out_dir_map.values():
+            rel = path
+            if package != "":
+                prefix = package + "/"
+                if path.startswith(prefix):
+                    rel = path[len(prefix):]
+                elif path == package:
+                    rel = ""
+                else:
+                    rel = None
+            if rel != None:
+                checked_in_patterns.append(rel + "/*.pb.go" if rel else "*.pb.go")
+    else:
+        checked_in_patterns.append("*.pb.go")
+        
+    checked_in_files = []
+    if checked_in_patterns:
+        checked_in_files = native.glob(checked_in_patterns, allow_empty = True)
     
     # Default visibility to public so sub-packages' targets are visible to parent/root targets.
     if "visibility" not in kwargs:
@@ -228,6 +322,9 @@ def write_go_proto_srcs(
         additional_update_targets = additional_update_targets,
         verbosity = verbosity,
         suggested_update_target = suggested_update_target if suggested_update_target else "",
+        out_dir = out_dir if out_dir else "",
+        out_dir_map = out_dir_map,
+        out_dir_map_strictness = out_dir_map_strictness,
         tags = tags,
         **kwargs
     )
