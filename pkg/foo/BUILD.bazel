@@ -1,5 +1,6 @@
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@rules_go//proto:def.bzl", "go_proto_library")
+load("//rules:defs.bzl", "write_go_proto_sources")
 
 proto_library(
     name = "foo_proto",
@@ -12,4 +13,9 @@ go_proto_library(
     importpath = "github.com/example/project/pkg/foo",
     proto = ":foo_proto",
     visibility = ["//visibility:public"],
+)
+
+write_go_proto_sources(
+    name = "update_protos",
+    srcs = [":foo_go_proto"],
 )

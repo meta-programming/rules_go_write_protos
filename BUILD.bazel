@@ -2,8 +2,8 @@ load("//rules:defs.bzl", "write_go_proto_sources")
 
 write_go_proto_sources(
     name = "update_protos",
-    srcs = [
-        "//pkg/foo:foo_go_proto",
+    additional_update_targets = [
+        "//pkg/foo:update_protos",
     ],
 )
 

@@ -9,7 +9,7 @@
 <pre>
 load("@rules_go_write_protos//rules:defs.bzl", "check_go_proto_srcs_test")
 
-check_go_proto_srcs_test(<a href="#check_go_proto_srcs_test-name">name</a>, <a href="#check_go_proto_srcs_test-srcs">srcs</a>)
+check_go_proto_srcs_test(<a href="#check_go_proto_srcs_test-name">name</a>, <a href="#check_go_proto_srcs_test-srcs">srcs</a>, <a href="#check_go_proto_srcs_test-additional_update_targets">additional_update_targets</a>, <a href="#check_go_proto_srcs_test-checked_in_files">checked_in_files</a>)
 </pre>
 
 
@@ -20,7 +20,9 @@ check_go_proto_srcs_test(<a href="#check_go_proto_srcs_test-name">name</a>, <a h
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="check_go_proto_srcs_test-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="check_go_proto_srcs_test-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | required |  |
+| <a id="check_go_proto_srcs_test-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="check_go_proto_srcs_test-additional_update_targets"></a>additional_update_targets |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="check_go_proto_srcs_test-checked_in_files"></a>checked_in_files |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 
 
 <a id="write_go_proto_srcs"></a>
@@ -30,7 +32,7 @@ check_go_proto_srcs_test(<a href="#check_go_proto_srcs_test-name">name</a>, <a h
 <pre>
 load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_srcs")
 
-write_go_proto_srcs(<a href="#write_go_proto_srcs-name">name</a>, <a href="#write_go_proto_srcs-srcs">srcs</a>)
+write_go_proto_srcs(<a href="#write_go_proto_srcs-name">name</a>, <a href="#write_go_proto_srcs-srcs">srcs</a>, <a href="#write_go_proto_srcs-additional_update_targets">additional_update_targets</a>, <a href="#write_go_proto_srcs-checked_in_files">checked_in_files</a>)
 </pre>
 
 
@@ -41,7 +43,9 @@ write_go_proto_srcs(<a href="#write_go_proto_srcs-name">name</a>, <a href="#writ
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="write_go_proto_srcs-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="write_go_proto_srcs-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | required |  |
+| <a id="write_go_proto_srcs-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="write_go_proto_srcs-additional_update_targets"></a>additional_update_targets |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="write_go_proto_srcs-checked_in_files"></a>checked_in_files |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 
 
 <a id="GoProtoSrcsInfo"></a>
@@ -64,6 +68,27 @@ Info about generated Go protobuf source files
 | <a id="GoProtoSrcsInfo-mappings"></a>mappings |  dict mapping generated file path to source tree destination path    |
 
 
+<a id="WriteProtoConfigInfo"></a>
+
+## WriteProtoConfigInfo
+
+<pre>
+load("@rules_go_write_protos//rules:defs.bzl", "WriteProtoConfigInfo")
+
+WriteProtoConfigInfo(<a href="#WriteProtoConfigInfo-files">files</a>, <a href="#WriteProtoConfigInfo-mappings">mappings</a>, <a href="#WriteProtoConfigInfo-checked_in_files">checked_in_files</a>)
+</pre>
+
+Provider to propagate sync configs
+
+**FIELDS**
+
+| Name  | Description |
+| :------------- | :------------- |
+| <a id="WriteProtoConfigInfo-files"></a>files |  depset of generated files    |
+| <a id="WriteProtoConfigInfo-mappings"></a>mappings |  dict mapping generated file path to destination path    |
+| <a id="WriteProtoConfigInfo-checked_in_files"></a>checked_in_files |  depset of checked-in source files    |
+
+
 <a id="write_go_proto_sources"></a>
 
 ## write_go_proto_sources
@@ -71,7 +96,7 @@ Info about generated Go protobuf source files
 <pre>
 load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_sources")
 
-write_go_proto_sources(<a href="#write_go_proto_sources-name">name</a>, <a href="#write_go_proto_sources-srcs">srcs</a>, <a href="#write_go_proto_sources-kwargs">**kwargs</a>)
+write_go_proto_sources(<a href="#write_go_proto_sources-name">name</a>, <a href="#write_go_proto_sources-srcs">srcs</a>, <a href="#write_go_proto_sources-additional_update_targets">additional_update_targets</a>, <a href="#write_go_proto_sources-kwargs">**kwargs</a>)
 </pre>
 
 
@@ -82,7 +107,8 @@ write_go_proto_sources(<a href="#write_go_proto_sources-name">name</a>, <a href=
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
 | <a id="write_go_proto_sources-name"></a>name |  <p align="center"> - </p>   |  none |
-| <a id="write_go_proto_sources-srcs"></a>srcs |  <p align="center"> - </p>   |  none |
+| <a id="write_go_proto_sources-srcs"></a>srcs |  <p align="center"> - </p>   |  `[]` |
+| <a id="write_go_proto_sources-additional_update_targets"></a>additional_update_targets |  <p align="center"> - </p>   |  `[]` |
 | <a id="write_go_proto_sources-kwargs"></a>kwargs |  <p align="center"> - </p>   |  none |
 
 

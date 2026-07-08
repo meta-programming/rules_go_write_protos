@@ -120,21 +120,30 @@ func runSync(files []FileMapping) error {
 }
 
 func runCheck(files []FileMapping) error {
-	workspaceRoot, err := findWorkspaceRoot()
-	if err != nil {
-		return fmt.Errorf("failed to detect workspace root: %w", err)
-	}
-
 	failed := false
 	for _, fm := range files {
 		srcPath, err := runfiles.Rlocation(fm.Src)
 		if err != nil {
-			return fmt.Errorf("failed to locate runfile %s: %w", fm.Src, err)
+			return fmt.Errorf("failed to locate generated runfile %s: %w", fm.Src, err)
 		}
-		destPath := filepath.Join(workspaceRoot, fm.Dest)
+
+		destPath, err := runfiles.Rlocation(fm.Dest)
+		if err != nil {
+			displayPath := fm.Dest
+			if len(displayPath) > 6 && displayPath[:6] == "_main/" {
+				displayPath = displayPath[6:]
+			}
+			fmt.Fprintf(os.Stderr, "source file does not exist in workspace: %s\n", displayPath)
+			failed = true
+			continue
+		}
 
 		if _, err := os.Stat(destPath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "source file does not exist in workspace: %s\n", fm.Dest)
+			displayPath := fm.Dest
+			if len(displayPath) > 6 && displayPath[:6] == "_main/" {
+				displayPath = displayPath[6:]
+			}
+			fmt.Fprintf(os.Stderr, "source file does not exist in workspace: %s\n", displayPath)
 			failed = true
 			continue
 		}
@@ -144,7 +153,11 @@ func runCheck(files []FileMapping) error {
 			return err
 		}
 		if !match {
-			fmt.Fprintf(os.Stderr, "source file out of sync: %s\n", fm.Dest)
+			displayPath := fm.Dest
+			if len(displayPath) > 6 && displayPath[:6] == "_main/" {
+				displayPath = displayPath[6:]
+			}
+			fmt.Fprintf(os.Stderr, "source file out of sync: %s\n", displayPath)
 			failed = true
 		}
 	}
@@ -183,30 +196,4 @@ func filesAreEqual(path1, path2 string) (bool, error) {
 		return false, err
 	}
 	return bytes.Equal(f1, f2), nil
-}
-
-func findWorkspaceRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	for {
-		marker := filepath.Join(dir, "MODULE.bazel")
-		if _, err := os.Stat(marker); err == nil {
-			realPath, err := filepath.EvalSymlinks(marker)
-			if err != nil {
-				return "", err
-			}
-			return filepath.Dir(realPath), nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-
-	return "", fmt.Errorf("could not find MODULE.bazel in any parent directory")
 }
