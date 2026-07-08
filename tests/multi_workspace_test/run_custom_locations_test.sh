@@ -46,7 +46,7 @@ echo "Step 6: Running out_dir_map check test again (expected to pass)..."
 bazel test //pkg/foo:update_protos_out_dir_map_test
 
 
-echo "Cleaning up generated custom location files..."
-rm -rf pkg/foo/custom_out pkg/foo/custom_map
+echo "Restoring checked-in custom location files..."
+git checkout -- pkg/foo/custom_out pkg/foo/custom_map
 
 echo "SUCCESS: Custom output locations integration test passed!"
