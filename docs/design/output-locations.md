@@ -145,8 +145,8 @@ write_go_proto_srcs(
 
 ---
 
-### 2. `out_dir_map` (Target-Level Mapping Dictionary)
-Allows mapping individual `go_proto_library` targets to different custom destination directories.
+### 2. `out_dir_map` (Go Importpath-Based Mapping Dictionary)
+Maps the Go package importpath (e.g. `"github.com/example/project/pkg/foo"`) to custom destination directories.
 
 #### API Design
 ```python
@@ -154,10 +154,21 @@ write_go_proto_srcs(
     name = "update_protos",
     srcs = [":foo_go_proto", ":bar_go_proto"],
     out_dir_map = {
-        ":foo_go_proto": "pkg/generated/foo",
-        ":bar_go_proto": "pkg/generated/bar",
+        "github.com/example/project/pkg/foo": "pkg/generated/foo",
+        "github.com/example/project/pkg/bar": "pkg/generated/bar",
     },
 )
+```
+
+#### Starlark Implementation
+1. We define `out_dir_map = attr.string_dict()`.
+2. The aspect `collect_go_proto_srcs_aspect` is modified to return a dictionary mapping each generated file path to its target's Go `importpath` (retrieved from target info).
+3. Inside the rule implementation `_write_go_proto_srcs_impl`, we look up the `importpath` for each generated file. If it exists in `ctx.attr.out_dir_map`, we map its destination to that folder:
+
+```python
+importpath = file_to_importpath[f.path]
+if importpath in ctx.attr.out_dir_map:
+    dest = ctx.attr.out_dir_map[importpath] + "/" + f.basename
 ```
 
 ---
@@ -188,12 +199,4 @@ If this is required, we can introduce a boolean `sync_external_deps` attribute (
 
 **Q**: Could `out_dir_map` be based on the Go package name (importpath) instead of the Bazel target label?
 
-**A**: Yes. Mapping by Go package name (e.g., `github.com/example/project/pkg/user`) is highly intuitive and stable.
-
-*   **How it works**: The Starlark aspect reads the `importpath` of each `go_proto_library` target. During rule execution, instead of matching targets by their Bazel label, we match by their `importpath` string.
-*   **Pros**: Agnostic to Bazel label name reorganizations. Aligning directory structure to Go packages is standard practice in Go development.
-*   **Cons**: Lacks Bazel label validation (Starlark won't detect typos in Go import paths at configuration-load time).
-
-**Proposed Extension**: We can support *both* by allowing keys in `out_dir_map` to be either:
-1. A Bazel target label (resolved using label-keyed dictionaries `attr.label_keyed_string_dict`).
-2. A Go import path string (resolved via a string-keyed fallback dictionary `out_importpath_map = attr.string_dict()`).
+**A**: Yes, and this is our primary mapping design option. Aligning directory overrides to Go packages is standard practice and keeps the workspace config stable even when internal Bazel target labels are reorganized.
