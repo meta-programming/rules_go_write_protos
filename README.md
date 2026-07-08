@@ -45,9 +45,9 @@ go_proto_library(
 In your root `BUILD.bazel` file, load and register the sync macro referencing the Go proto library:
 
 ```python
-load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_sources")
+load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_srcs")
 
-write_go_proto_sources(
+write_go_proto_srcs(
     name = "update_protos",
     srcs = [
         "//pkg/foo:foo_go_proto",

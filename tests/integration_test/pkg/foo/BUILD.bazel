@@ -1,6 +1,6 @@
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@rules_go//proto:def.bzl", "go_proto_library")
-load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_sources")
+load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_srcs")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -17,7 +17,7 @@ go_proto_library(
     deps = ["@external_proto_dep//pkg/bar:bar_go_proto"],
 )
 
-write_go_proto_sources(
+write_go_proto_srcs(
     name = "update_protos",
     srcs = [
         ":foo_go_proto",

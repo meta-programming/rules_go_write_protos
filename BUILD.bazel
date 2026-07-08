@@ -1,6 +1,6 @@
-load("//rules:defs.bzl", "write_go_proto_sources")
+load("//rules:defs.bzl", "write_go_proto_srcs")
 
-write_go_proto_sources(
+write_go_proto_srcs(
     name = "update_protos",
     additional_update_targets = [
         "//pkg/foo:update_protos",

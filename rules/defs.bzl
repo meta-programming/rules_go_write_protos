@@ -122,7 +122,7 @@ def _write_go_proto_srcs_impl(ctx):
         ),
     ]
 
-write_go_proto_srcs = rule(
+_write_go_proto_srcs_rule = rule(
     implementation = _write_go_proto_srcs_impl,
     attrs = {
         "srcs": attr.label_list(
@@ -146,7 +146,7 @@ write_go_proto_srcs = rule(
     executable = True,
 )
 
-def _check_go_proto_srcs_test_impl(ctx):
+def _write_go_proto_srcs_test_impl(ctx):
     executable_file = ctx.actions.declare_file(ctx.label.name + ".sh")
     ctx.actions.symlink(
         output = executable_file,
@@ -160,8 +160,8 @@ def _check_go_proto_srcs_test_impl(ctx):
         ),
     ]
 
-check_go_proto_srcs_test = rule(
-    implementation = _check_go_proto_srcs_test_impl,
+_write_go_proto_srcs_test = rule(
+    implementation = _write_go_proto_srcs_test_impl,
     attrs = {
         "binary": attr.label(
             executable = True,
@@ -172,7 +172,7 @@ check_go_proto_srcs_test = rule(
     test = True,
 )
 
-def write_go_proto_sources(name, srcs = [], additional_update_targets = [], **kwargs):
+def write_go_proto_srcs(name, srcs = [], additional_update_targets = [], **kwargs):
     # Glob the checked-in files in the current package directory
     checked_in_files = native.glob(["*.pb.go"], allow_empty = True)
     
@@ -182,7 +182,7 @@ def write_go_proto_sources(name, srcs = [], additional_update_targets = [], **kw
 
     tags = kwargs.pop("tags", [])
     
-    write_go_proto_srcs(
+    _write_go_proto_srcs_rule(
         name = name,
         srcs = srcs,
         checked_in_files = checked_in_files,
@@ -191,7 +191,7 @@ def write_go_proto_sources(name, srcs = [], additional_update_targets = [], **kw
         **kwargs
     )
     
-    check_go_proto_srcs_test(
+    _write_go_proto_srcs_test(
         name = name + "_test",
         binary = ":" + name,
         tags = tags,
