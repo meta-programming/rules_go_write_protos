@@ -1,0 +1,62 @@
+name: Release & Publish to BCR
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'The tag name to publish (e.g., v0.0.1)'
+        required: true
+        type: string
+
+jobs:
+  package-assets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Version
+        id: get_version
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Package Release Archive
+        run: |
+          TAG="${{ steps.get_version.outputs.tag }}"
+          VERSION="${{ steps.get_version.outputs.version }}"
+          # Create a stable tarball of the repository
+          git archive --format=tar.gz --prefix=rules_go_write_protos-$VERSION/ -o rules_go_write_protos-$VERSION.tar.gz HEAD
+
+      - name: Upload Release Asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.get_version.outputs.tag }}" "rules_go_write_protos-${{ steps.get_version.outputs.version }}.tar.gz"
+
+      - name: Upload Release Artifact (for BCR)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release_files
+          path: rules_go_write_protos-${{ steps.get_version.outputs.version }}.tar.gz
+          retention-days: 1
+
+  publish-bcr:
+    needs: package-assets
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.4.1
+    with:
+      tag_name: ${{ github.event.release.tag_name || inputs.tag_name }}
+      registry_fork: gonzojive/bazel-central-registry
+      open_pull_request: false
+      attest: false
+    secrets:
+      publish_token: ${{ secrets.BCR_PUBLISH_TOKEN }}

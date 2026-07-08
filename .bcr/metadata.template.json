@@ -1,0 +1,16 @@
+{
+  "name": "rules_go_write_protos",
+  "homepage": "https://github.com/meta-programming/rules_go_write_protos",
+  "maintainers": [
+    {
+      "name": "Red Daly",
+      "email": "reddaly@gmail.com",
+      "github": "reddaly"
+    }
+  ],
+  "repository": [
+    "github:meta-programming/rules_go_write_protos"
+  ],
+  "versions": [],
+  "yanked_versions": {}
+}

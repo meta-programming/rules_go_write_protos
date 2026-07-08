@@ -1,0 +1,4 @@
+{
+  "url": "https://github.com/meta-programming/rules_go_write_protos/releases/download/{TAG}/rules_go_write_protos-{VERSION}.tar.gz",
+  "strip_prefix": "rules_go_write_protos-{VERSION}"
+}

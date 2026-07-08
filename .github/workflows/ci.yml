@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 'stable'
+
+    - name: Set up Bazel
+      uses: bazelbuild/setup-bazelisk@v3
+
+    # Mount Bazel cache directories to persist them across runs
+    - name: Mount Bazel Cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/bazel-disk
+          ~/.cache/bazel-repo
+        key: bazel-cache-${{ runner.os }}-${{ github.run_id }}
+        restore-keys: |
+          bazel-cache-${{ runner.os }}-
+
+    - name: Configure Shared Bazel Cache
+      run: |
+        mkdir -p ~/.cache/bazel-disk
+        mkdir -p ~/.cache/bazel-repo
+        echo "build --disk_cache=~/.cache/bazel-disk" >> ~/.bazelrc
+        echo "build --repository_cache=~/.cache/bazel-repo" >> ~/.bazelrc
+
+    - name: Run Bazel Build
+      run: |
+        bazel build //...
+
+    - name: Run Bazel Tests
+      run: |
+        bazel test //...

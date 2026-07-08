@@ -1,6 +1,6 @@
 module(
     name = "rules_go_write_protos",
-    version = "0.0.0",
+    version = "0.0.1",
 )
 
 bazel_dep(name = "rules_go", version = "0.61.1")
