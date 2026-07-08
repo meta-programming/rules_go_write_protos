@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package pkg.foo;
+
+option go_package = "github.com/example/project/pkg/foo";
+
+message HelloRequest {
+    string name = 1;
+}
+
+message HelloResponse {
+    string message = 2;
+}

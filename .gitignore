@@ -1,0 +1,5 @@
+# Bazel output symlinks
+/bazel-*
+
+# Bazel Bzlmod lockfile (optional, but commonly ignored or kept. Let's ignore it to keep clean)
+/MODULE.bazel.lock
