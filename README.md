@@ -17,14 +17,7 @@ When using `rules_go`, Go protobuf bindings (`.pb.go`) are generated inside Baze
 Add the following to your `MODULE.bazel`:
 
 ```python
-# Add the dependency on rules_go_write_protos
 bazel_dep(name = "rules_go_write_protos", version = "0.0.1")
-
-# The versions below are examples; you probably already have these configured
-# in your project. All you really need to add is the rules_go_write_protos dep.
-bazel_dep(name = "rules_go", version = "0.60.0")
-bazel_dep(name = "rules_proto", version = "7.1.0")
-bazel_dep(name = "protobuf", version = "33.4")
 ```
 
 ### 2. Define Protobuf Targets
