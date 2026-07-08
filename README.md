@@ -24,7 +24,7 @@ module(
 # Fetch rules_go_write_protos from Git (or BCR when available)
 git_override(
     module_name = "rules_go_write_protos",
-    remote = "https://github.com/gonzojive/rules_go_write_protos.git",
+    remote = "https://github.com/meta-programming/rules_go_write_protos.git",
     commit = "[latest-commit-hash]", # Replace with the latest commit hash
 )
 
