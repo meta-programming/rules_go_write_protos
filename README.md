@@ -53,6 +53,18 @@ write_go_proto_srcs(
         "//pkg/foo:foo_go_proto",
     ],
 )
+
+# Alternative: Mapping Go packages to custom directory structures.
+# (Note: mapping to "pkg/foo" here is equivalent to the default package-based output).
+write_go_proto_srcs(
+    name = "update_protos_custom",
+    srcs = [
+        "//pkg/foo:foo_go_proto",
+    ],
+    out_dir_map = {
+        "github.com/example/project/pkg/foo": "pkg/foo",
+    },
+)
 ```
 
 ### 3. Sync Generated Files
