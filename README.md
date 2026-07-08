@@ -53,14 +53,16 @@ write_go_proto_srcs(
         "//pkg/foo:foo_go_proto",
     ],
 )
+```
 
-# Alternative: Mapping Go packages to custom directory structures.
-# (Note: mapping to "pkg/foo" here is equivalent to the default package-based output.
-# This is useful if you have .proto files in a "protos/foo" directory and want to
-# output Go source files in a different directory, like "pkg/foo". This is because
-# standard Go toolchains (using go.mod) expect package files to reside in the
-# directory corresponding to their import path, whereas Bazel's rules_go is tolerant
-# of Go packages being compiled from any location in the repository).
+#### Alternative Setup (Custom Output Locations)
+Alternatively, you can map Go packages to custom directory structures. This is especially useful if you keep `.proto` source files under one folder structure (e.g. `protos/foo`) but want to output the generated Go source files to another location (e.g. `pkg/foo`). 
+
+Standard Go toolchains (running `go build` with `go.mod`) expect Go package files to reside strictly in the directory matching their import paths. In contrast, Bazel's `rules_go` is tolerant of compiling Go packages from any location. Using `out_dir_map` bridges this gap (note that mapping to `"pkg/foo"` here is equivalent to the default package-based output):
+
+```python
+load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_srcs")
+
 write_go_proto_srcs(
     name = "update_protos_custom",
     srcs = [
