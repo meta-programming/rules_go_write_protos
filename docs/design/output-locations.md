@@ -179,14 +179,21 @@ We propose the following validation modes for `out_dir_map_mode` (default is `"l
 ## FAQ
 
 **Q**: Is filtering out external workspace targets (like `@com_github_example_other_module`) *always* the right behavior?
+
 **A**: Generally yes, because 3rd-party dependencies should be fetched and compiled hermetically rather than duplicated in the local workspace source tree. However, under air-gapped or offline deployment constraints, teams might need to vendor all generated code locally.
+
 If this is required, we can introduce a boolean `sync_external_deps` attribute (defaulting to `False`). If set to `True`, the aspect will include external dependencies, and they can be mapped under a custom vendor folder (e.g. `vendor/github.com/example/other_module/...`).
 
+<br/>
+
 **Q**: Could `out_dir_map` be based on the Go package name (importpath) instead of the Bazel target label?
+
 **A**: Yes. Mapping by Go package name (e.g., `github.com/example/project/pkg/user`) is highly intuitive and stable.
+
 *   **How it works**: The Starlark aspect reads the `importpath` of each `go_proto_library` target. During rule execution, instead of matching targets by their Bazel label, we match by their `importpath` string.
 *   **Pros**: Agnostic to Bazel label name reorganizations. Aligning directory structure to Go packages is standard practice in Go development.
 *   **Cons**: Lacks Bazel label validation (Starlark won't detect typos in Go import paths at configuration-load time).
-*   **Proposed Extension**: We can support *both* by allowing keys in `out_dir_map` to be either:
-    1. A Bazel target label (resolved using label-keyed dictionaries `attr.label_keyed_string_dict`).
-    2. A Go import path string (resolved via a string-keyed fallback dictionary `out_importpath_map = attr.string_dict()`).
+
+**Proposed Extension**: We can support *both* by allowing keys in `out_dir_map` to be either:
+1. A Bazel target label (resolved using label-keyed dictionaries `attr.label_keyed_string_dict`).
+2. A Go import path string (resolved via a string-keyed fallback dictionary `out_importpath_map = attr.string_dict()`).
