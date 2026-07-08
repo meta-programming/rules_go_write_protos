@@ -20,8 +20,9 @@ Add the following to your `MODULE.bazel`:
 bazel_dep(name = "rules_go_write_protos", version = "0.0.1")
 ```
 
-### 2. Define Protobuf Targets
-In your package `BUILD.bazel` (e.g., `pkg/foo/BUILD.bazel`):
+### 2. Define Targets and Register the Sync Macro
+
+In your package `BUILD.bazel` (e.g., `pkg/foo/BUILD.bazel`), define your compilation targets:
 
 ```python
 load("@rules_proto//proto:defs.bzl", "proto_library")
@@ -41,8 +42,7 @@ go_proto_library(
 )
 ```
 
-### 3. Load and Register the Sync Macro
-In your root `BUILD.bazel` file:
+In your root `BUILD.bazel` file, load and register the sync macro referencing the Go proto library:
 
 ```python
 load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_sources")
@@ -55,7 +55,7 @@ write_go_proto_sources(
 )
 ```
 
-### 4. Sync Generated Files
+### 3. Sync Generated Files
 Run the executable sync target to copy generated `.pb.go` files into the source tree:
 
 ```bash
@@ -64,7 +64,7 @@ bazel run //:update_protos
 
 This will write the files to `pkg/foo/foo.pb.go` and mark them writable (`chmod +w`).
 
-### 5. Verify Drift (CI & Local Checks)
+### 4. Verify Drift (CI & Local Checks)
 A companion test target `[name]_test` is automatically created. To verify that checked-in files match what Bazel generates:
 
 ```bash
