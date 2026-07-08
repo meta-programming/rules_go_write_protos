@@ -49,8 +49,10 @@ type FileMapping struct {
 }
 
 type Config struct {
-	Mode  string        `json:"mode"` // "sync" or "check"
-	Files []FileMapping `json:"files"`
+	Mode                  string        `json:"mode"` // "sync" or "check"
+	Verbosity             string        `json:"verbosity"`
+	SuggestedUpdateTarget string        `json:"suggested_update_target"`
+	Files                 []FileMapping `json:"files"`
 }
 
 func main() {
@@ -107,9 +109,9 @@ func main() {
 	// Automatically run in check mode if executed under Bazel test environment.
 	isTest := os.Getenv("TEST_WORKSPACE") != "" || os.Getenv("TEST_SRCDIR") != ""
 	if isTest || config.Mode == "check" {
-		err = runCheck(config.Files)
+		err = runCheck(config)
 	} else {
-		err = runSync(config.Files)
+		err = runSync(config)
 	}
 
 	if err != nil {
@@ -118,13 +120,13 @@ func main() {
 	}
 }
 
-func runSync(files []FileMapping) error {
+func runSync(config Config) error {
 	workspaceDir := os.Getenv("BUILD_WORKSPACE_DIRECTORY")
 	if workspaceDir == "" {
 		return fmt.Errorf("BUILD_WORKSPACE_DIRECTORY is not set; must run via 'bazel run'")
 	}
 
-	for _, fm := range files {
+	for _, fm := range config.Files {
 		srcPath, err := runfiles.Rlocation(fm.Src)
 		if err != nil {
 			return fmt.Errorf("failed to locate runfile %s: %w", fm.Src, err)
@@ -138,24 +140,31 @@ func runSync(files []FileMapping) error {
 		if err := copyFile(srcPath, destPath); err != nil {
 			return fmt.Errorf("failed to copy %s to %s: %w", fm.Src, fm.Dest, err)
 		}
-		
+
 		// Ensure the file is writable.
 		if err := os.Chmod(destPath, 0644); err != nil {
 			return fmt.Errorf("failed to set write permissions on %s: %w", fm.Dest, err)
 		}
-		fmt.Printf("Updated: %s\n", fm.Dest)
+
+		if config.Verbosity == "full" || config.Verbosity == "" {
+			fmt.Printf("Updated: %s\n", fm.Dest)
+		}
+	}
+
+	if config.Verbosity == "short" {
+		fmt.Printf("Synchronized %d Go protobuf files.\n", len(config.Files))
 	}
 	return nil
 }
 
-func runCheck(files []FileMapping) error {
+func runCheck(config Config) error {
 	failed := false
 	testWorkspace := os.Getenv("TEST_WORKSPACE")
 	if testWorkspace == "" {
 		testWorkspace = "_main"
 	}
 
-	for _, fm := range files {
+	for _, fm := range config.Files {
 		srcPath, err := runfiles.Rlocation(fm.Src)
 		if err != nil {
 			return fmt.Errorf("failed to locate generated runfile %s: %w", fm.Src, err)
@@ -186,10 +195,27 @@ func runCheck(files []FileMapping) error {
 	}
 
 	if failed {
-		return fmt.Errorf("verification failed; run the update target to sync generated files")
+		suggestedCmd := getSuggestedCommand(config)
+		return fmt.Errorf("verification failed; to sync generated files, run:\n    %s", suggestedCmd)
 	}
-	fmt.Println("All generated Go proto files are up to date!")
+	if config.Verbosity == "full" || config.Verbosity == "short" || config.Verbosity == "" {
+		fmt.Println("All generated Go proto files are up to date!")
+	}
 	return nil
+}
+
+func getSuggestedCommand(config Config) string {
+	if config.SuggestedUpdateTarget != "" {
+		return fmt.Sprintf("bazel run %s", config.SuggestedUpdateTarget)
+	}
+	testTarget := os.Getenv("TEST_TARGET")
+	if testTarget != "" {
+		if len(testTarget) > 5 && testTarget[len(testTarget)-5:] == "_test" {
+			return fmt.Sprintf("bazel run %s", testTarget[:len(testTarget)-5])
+		}
+		return fmt.Sprintf("bazel run %s", testTarget)
+	}
+	return "bazel run :<your_update_target>"
 }
 
 func copyFile(src, dst string) error {

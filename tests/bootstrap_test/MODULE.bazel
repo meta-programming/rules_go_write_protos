@@ -1,7 +1,6 @@
-module(name = "integration_test", version = "0.0.0")
+module(name = "bootstrap_test", version = "0.0.0")
 
 bazel_dep(name = "rules_go_write_protos", version = "0.0.0")
-bazel_dep(name = "external_proto_dep", version = "0.0.0")
 bazel_dep(name = "rules_go", version = "0.60.0")
 bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "protobuf", version = "33.4")
@@ -9,11 +8,6 @@ bazel_dep(name = "protobuf", version = "33.4")
 local_path_override(
     module_name = "rules_go_write_protos",
     path = "../..",
-)
-
-local_path_override(
-    module_name = "external_proto_dep",
-    path = "../external_proto_dep",
 )
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")

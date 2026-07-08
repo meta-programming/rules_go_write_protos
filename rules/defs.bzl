@@ -88,6 +88,8 @@ def _write_go_proto_srcs_impl(ctx):
         output = config_file,
         content = json.encode(struct(
             mode = "sync",
+            verbosity = ctx.attr.verbosity,
+            suggested_update_target = ctx.attr.suggested_update_target,
             files = [struct(
                 src = ctx.workspace_name + "/" + f.short_path if not f.short_path.startswith("../") else f.short_path[3:],
                 dest = mappings[f.path],
@@ -137,6 +139,13 @@ _write_go_proto_srcs_rule = rule(
             providers = [WriteProtoConfigInfo],
             mandatory = False,
         ),
+        "verbosity": attr.string(
+            default = "full",
+            values = ["full", "short", "quiet"],
+        ),
+        "suggested_update_target": attr.string(
+            mandatory = False,
+        ),
         "_syncer_tool": attr.label(
             default = "//tools/copy_generated_proto_sources",
             executable = True,
@@ -172,7 +181,37 @@ _write_go_proto_srcs_test = rule(
     test = True,
 )
 
-def write_go_proto_srcs(name, srcs = [], additional_update_targets = [], **kwargs):
+def write_go_proto_srcs(
+        name,
+        srcs = [],
+        additional_update_targets = [],
+        diff_test = True,
+        verbosity = "full",
+        suggested_update_target = None,
+        **kwargs):
+    """Registers targets to synchronize and verify generated Go protobuf files.
+
+    This macro instantiates:
+      1. An executable sync target (`{name}`) that copies Bazel's output
+         tree `.pb.go` files back into the user's workspace source directory.
+      2. If `diff_test` is True, a hermetic test target (`{name}_test`) that
+         verifies no drift exists between the workspace files and the
+         generated Bazel runfiles.
+
+    Args:
+        name: A unique name for this target. The test target is named `{name}_test`.
+        srcs: A list of `go_proto_library` targets whose generated Go sources
+            should be tracked and synchronized.
+        additional_update_targets: A list of other `write_go_proto_srcs` targets
+            whose configurations and runfiles should be transitively aggregated.
+            Useful for creating a single root-level synchronization target.
+        diff_test: If True, generates a corresponding `{name}_test` target.
+        verbosity: Verbosity level of the sync command outputs. One of `"full"`,
+            `"short"`, or `"quiet"`.
+        suggested_update_target: An optional suggested sync target path to print
+            in the test failure error messages (e.g. `//:update_protos`).
+        **kwargs: Common target attributes like `visibility`, `tags`, etc.
+    """
     # Glob the checked-in files in the current package directory
     checked_in_files = native.glob(["*.pb.go"], allow_empty = True)
     
@@ -187,13 +226,16 @@ def write_go_proto_srcs(name, srcs = [], additional_update_targets = [], **kwarg
         srcs = srcs,
         checked_in_files = checked_in_files,
         additional_update_targets = additional_update_targets,
+        verbosity = verbosity,
+        suggested_update_target = suggested_update_target if suggested_update_target else "",
         tags = tags,
         **kwargs
     )
     
-    _write_go_proto_srcs_test(
-        name = name + "_test",
-        binary = ":" + name,
-        tags = tags,
-        visibility = kwargs.get("visibility"),
-    )
+    if diff_test:
+        _write_go_proto_srcs_test(
+            name = name + "_test",
+            binary = ":" + name,
+            tags = tags,
+            visibility = kwargs.get("visibility"),
+        )

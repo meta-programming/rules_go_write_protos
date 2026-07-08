@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package pkg.bootstrap;
+
+option go_package = "github.com/meta-programming/rules_go_write_protos/tests/bootstrap_test/pkg/bootstrap";
+
+message HelloRequest {
+    string name = 1;
+}
+
+message HelloResponse {
+    string greeting = 1;
+}
