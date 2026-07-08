@@ -9,7 +9,7 @@
 <pre>
 load("@rules_go_write_protos//rules:defs.bzl", "check_go_proto_srcs_test")
 
-check_go_proto_srcs_test(<a href="#check_go_proto_srcs_test-name">name</a>, <a href="#check_go_proto_srcs_test-srcs">srcs</a>, <a href="#check_go_proto_srcs_test-additional_update_targets">additional_update_targets</a>, <a href="#check_go_proto_srcs_test-checked_in_files">checked_in_files</a>)
+check_go_proto_srcs_test(<a href="#check_go_proto_srcs_test-name">name</a>, <a href="#check_go_proto_srcs_test-binary">binary</a>)
 </pre>
 
 
@@ -20,9 +20,7 @@ check_go_proto_srcs_test(<a href="#check_go_proto_srcs_test-name">name</a>, <a h
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="check_go_proto_srcs_test-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="check_go_proto_srcs_test-srcs"></a>srcs |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
-| <a id="check_go_proto_srcs_test-additional_update_targets"></a>additional_update_targets |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
-| <a id="check_go_proto_srcs_test-checked_in_files"></a>checked_in_files |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="check_go_proto_srcs_test-binary"></a>binary |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 
 
 <a id="write_go_proto_srcs"></a>

@@ -146,114 +146,32 @@ write_go_proto_srcs = rule(
     executable = True,
 )
 
-def _check_go_proto_srcs_impl(ctx):
-    generated_files = []
-    mappings = {}
-    checked_in_files = list(ctx.files.checked_in_files)
-    
-    # 1. Collect from direct targets (srcs)
-    for src in ctx.attr.srcs:
-        if GoProtoSrcsInfo in src:
-            generated_files.extend(src[GoProtoSrcsInfo].files.to_list())
-            mappings.update(src[GoProtoSrcsInfo].mappings)
-            
-    # 2. Collect from additional_update_targets
-    for target in ctx.attr.additional_update_targets:
-        if WriteProtoConfigInfo in target:
-            generated_files.extend(target[WriteProtoConfigInfo].files.to_list())
-            mappings.update(target[WriteProtoConfigInfo].mappings)
-            checked_in_files.extend(target[WriteProtoConfigInfo].checked_in_files.to_list())
-            
-    if not generated_files and not ctx.attr.additional_update_targets:
-        fail("No generated Go proto files found in the provided targets.")
-        
-    # Remove duplicates
-    unique_files = {}
-    for f in generated_files:
-        unique_files[f.path] = f
-        
-    unique_checked_in = {}
-    for f in checked_in_files:
-        unique_checked_in[f.path] = f
-        
-    # Build matched files config list
-    files_list = []
-    checked_in_by_short_path = {f.short_path: f for f in unique_checked_in.values()}
-    
-    for f in unique_files.values():
-        dest_path = mappings[f.path]
-        src_runfile = ctx.workspace_name + "/" + f.short_path if not f.short_path.startswith("../") else f.short_path[3:]
-        if dest_path in checked_in_by_short_path:
-            f_src = checked_in_by_short_path[dest_path]
-            dest_runfile = ctx.workspace_name + "/" + f_src.short_path if not f_src.short_path.startswith("../") else f_src.short_path[3:]
-        else:
-            dest_runfile = ctx.workspace_name + "/" + dest_path
-            
-        files_list.append(struct(
-            src = src_runfile,
-            dest = dest_runfile,
-        ))
-        
-    # Generate JSON config
-    config_file = ctx.actions.declare_file(ctx.label.name + ".json")
-    ctx.actions.write(
-        output = config_file,
-        content = json.encode(struct(
-            mode = "check",
-            files = files_list,
-        ))
-    )
-    
-    # Symlink the Go tool
-    executable_file = ctx.actions.declare_file(ctx.label.name)
+def _check_go_proto_srcs_test_impl(ctx):
+    executable_file = ctx.actions.declare_file(ctx.label.name + ".sh")
     ctx.actions.symlink(
         output = executable_file,
-        target_file = ctx.executable._syncer_tool,
+        target_file = ctx.executable.binary,
         is_executable = True,
     )
-    
-    runfiles_files = list(unique_files.values()) + list(unique_checked_in.values()) + [config_file]
-    
     return [
         DefaultInfo(
             executable = executable_file,
-            runfiles = ctx.runfiles(files = runfiles_files),
-        ),
-        RunEnvironmentInfo(
-            environment = {
-                "CONFIG_JSON_PATH": ctx.workspace_name + "/" + config_file.short_path,
-            }
-        ),
-        WriteProtoConfigInfo(
-            files = depset(unique_files.values()),
-            mappings = mappings,
-            checked_in_files = depset(unique_checked_in.values()),
+            runfiles = ctx.attr.binary[DefaultInfo].default_runfiles,
         ),
     ]
 
 check_go_proto_srcs_test = rule(
-    implementation = _check_go_proto_srcs_impl,
+    implementation = _check_go_proto_srcs_test_impl,
     attrs = {
-        "srcs": attr.label_list(
-            aspects = [collect_go_proto_srcs_aspect],
-            mandatory = False,
-        ),
-        "checked_in_files": attr.label_list(
-            allow_files = True,
-            mandatory = False,
-        ),
-        "additional_update_targets": attr.label_list(
-            providers = [WriteProtoConfigInfo],
-            mandatory = False,
-        ),
-        "_syncer_tool": attr.label(
-            default = "//tools/copy_generated_proto_sources",
+        "binary": attr.label(
             executable = True,
-            cfg = "exec",
+            cfg = "target",
+            mandatory = True,
         ),
     },
     test = True,
 )
+
 def write_go_proto_sources(name, srcs = [], additional_update_targets = [], **kwargs):
     # Glob the checked-in files in the current package directory
     checked_in_files = native.glob(["*.pb.go"], allow_empty = True)
@@ -275,9 +193,7 @@ def write_go_proto_sources(name, srcs = [], additional_update_targets = [], **kw
     
     check_go_proto_srcs_test(
         name = name + "_test",
-        srcs = srcs,
-        checked_in_files = checked_in_files,
-        additional_update_targets = [t + "_test" for t in additional_update_targets],
+        binary = ":" + name,
         tags = tags,
-        **kwargs
+        visibility = kwargs.get("visibility"),
     )

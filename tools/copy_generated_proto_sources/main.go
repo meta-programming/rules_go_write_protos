@@ -24,11 +24,12 @@
 //    locate generated files and its own JSON configuration at runtime.
 //
 // 3. Workspace Drift Detection:
-//    When running in test ('check') mode, the tool runs inside Bazel's sandbox. The sandbox
-//    contains symlinks to workspace files. To verify drift against the host's real source
-//    tree files, the tool locates the sandboxed `MODULE.bazel` runfile, follows its symlink
-//    to the real source tree file using `filepath.EvalSymlinks`, and uses that parent
-//    directory as the source of truth workspace root.
+//    When running in test ('check') mode, the tool runs entirely inside Bazel's hermetic
+//    sandbox. By declaring both the generated `.pb.go` files and the checked-in `.pb.go`
+//    files as test runfiles, Bazel mounts both inside the sandbox. The tool then resolves
+//    both paths using the Go runfiles library (`runfiles.Rlocation`) and compares them
+//    directly. This eliminates any need to traverse the host filesystem or follow
+//    external workspace symlinks.
 package main
 
 import (
@@ -54,20 +55,46 @@ type Config struct {
 
 func main() {
 	configRunfilePath := os.Getenv("CONFIG_JSON_PATH")
-	if configRunfilePath == "" {
-		execName := filepath.Base(os.Args[0])
-		configRunfilePath = fmt.Sprintf("_main/%s.json", execName)
+	var configBytes []byte
+	var err error
+
+	if configRunfilePath != "" {
+		var rpath string
+		rpath, err = runfiles.Rlocation(configRunfilePath)
+		if err == nil {
+			configBytes, err = os.ReadFile(rpath)
+		}
+	} else {
+		// Fallback 1: Try reading next to the executable path
+		var exePath string
+		exePath, err = os.Executable()
+		if err == nil {
+			configBytes, err = os.ReadFile(exePath + ".json")
+			if err != nil {
+				configBytes, err = os.ReadFile(filepath.Join(filepath.Dir(exePath), getBaseName(exePath)+".json"))
+			}
+		}
+
+		// Fallback 2: Try reading next to os.Args[0]
+		if err != nil {
+			configBytes, err = os.ReadFile(os.Args[0] + ".json")
+			if err != nil {
+				configBytes, err = os.ReadFile(filepath.Join(filepath.Dir(os.Args[0]), getBaseName(os.Args[0])+".json"))
+			}
+		}
+
+		// Fallback 3: Hardcoded main package path relative to runfiles
+		if err != nil {
+			var rpath string
+			rpath, err = runfiles.Rlocation(fmt.Sprintf("_main/%s.json", getBaseName(os.Args[0])))
+			if err == nil {
+				configBytes, err = os.ReadFile(rpath)
+			}
+		}
 	}
 
-	rpath, err := runfiles.Rlocation(configRunfilePath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to locate configuration runfile %s: %v\n", configRunfilePath, err)
-		os.Exit(1)
-	}
-
-	configBytes, err := os.ReadFile(rpath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to read configuration: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to read configuration JSON: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -77,10 +104,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if config.Mode == "sync" {
-		err = runSync(config.Files)
-	} else {
+	// Automatically run in check mode if executed under Bazel test environment.
+	isTest := os.Getenv("TEST_WORKSPACE") != "" || os.Getenv("TEST_SRCDIR") != ""
+	if isTest || config.Mode == "check" {
 		err = runCheck(config.Files)
+	} else {
+		err = runSync(config.Files)
 	}
 
 	if err != nil {
@@ -121,29 +150,27 @@ func runSync(files []FileMapping) error {
 
 func runCheck(files []FileMapping) error {
 	failed := false
+	testWorkspace := os.Getenv("TEST_WORKSPACE")
+	if testWorkspace == "" {
+		testWorkspace = "_main"
+	}
+
 	for _, fm := range files {
 		srcPath, err := runfiles.Rlocation(fm.Src)
 		if err != nil {
 			return fmt.Errorf("failed to locate generated runfile %s: %w", fm.Src, err)
 		}
 
-		destPath, err := runfiles.Rlocation(fm.Dest)
+		destRunfilePath := testWorkspace + "/" + fm.Dest
+		destPath, err := runfiles.Rlocation(destRunfilePath)
 		if err != nil {
-			displayPath := fm.Dest
-			if len(displayPath) > 6 && displayPath[:6] == "_main/" {
-				displayPath = displayPath[6:]
-			}
-			fmt.Fprintf(os.Stderr, "source file does not exist in workspace: %s\n", displayPath)
+			fmt.Fprintf(os.Stderr, "source file does not exist in workspace: %s\n", fm.Dest)
 			failed = true
 			continue
 		}
 
 		if _, err := os.Stat(destPath); os.IsNotExist(err) {
-			displayPath := fm.Dest
-			if len(displayPath) > 6 && displayPath[:6] == "_main/" {
-				displayPath = displayPath[6:]
-			}
-			fmt.Fprintf(os.Stderr, "source file does not exist in workspace: %s\n", displayPath)
+			fmt.Fprintf(os.Stderr, "source file does not exist in workspace: %s\n", fm.Dest)
 			failed = true
 			continue
 		}
@@ -153,11 +180,7 @@ func runCheck(files []FileMapping) error {
 			return err
 		}
 		if !match {
-			displayPath := fm.Dest
-			if len(displayPath) > 6 && displayPath[:6] == "_main/" {
-				displayPath = displayPath[6:]
-			}
-			fmt.Fprintf(os.Stderr, "source file out of sync: %s\n", displayPath)
+			fmt.Fprintf(os.Stderr, "source file out of sync: %s\n", fm.Dest)
 			failed = true
 		}
 	}
@@ -196,4 +219,19 @@ func filesAreEqual(path1, path2 string) (bool, error) {
 		return false, err
 	}
 	return bytes.Equal(f1, f2), nil
+}
+
+func getBaseName(path string) string {
+	base := filepath.Base(path)
+	for {
+		ext := filepath.Ext(base)
+		if ext == "" {
+			break
+		}
+		base = base[:len(base)-len(ext)]
+	}
+	if len(base) > 5 && base[len(base)-5:] == "_test" {
+		base = base[:len(base)-5]
+	}
+	return base
 }
