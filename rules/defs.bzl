@@ -55,56 +55,38 @@ def _write_go_proto_srcs_impl(ctx):
     for f in generated_files:
         unique_files[f.path] = f
         
-    # Generate copying script
-    script_content = [
-        "#!/usr/bin/env bash",
-        "set -euo pipefail",
-        "",
-        'if [ -z "${BUILD_WORKSPACE_DIRECTORY}" ]; then',
-        '  echo "Error: This target must be run with \'bazel run\'" >&2',
-        "  exit 1",
-        "fi",
-        "",
-        '# Locate runfiles directory',
-        'if [ -z "${RUNFILES_DIR:-}" ]; then',
-        '  if [ -d "${BASH_SOURCE[0]}.runfiles" ]; then',
-        '    RUNFILES_DIR="${BASH_SOURCE[0]}.runfiles"',
-        '  elif [ -d "$(dirname "$0")/$(basename "$0").runfiles" ]; then',
-        '    RUNFILES_DIR="$(dirname "$0")/$(basename "$0").runfiles"',
-        '  elif [ -d "${TEST_SRCDIR:-}" ]; then',
-        '    RUNFILES_DIR="${TEST_SRCDIR}"',
-        '  else',
-        '    echo "Error: Could not locate runfiles directory." >&2',
-        '    exit 1',
-        '  fi',
-        'fi',
-        "",
-    ]
-    
-    workspace_name = ctx.workspace_name
-    
-    for path, f in unique_files.items():
-        # Get target destination path from mappings
-        dest_path = mappings[path]
-        runfiles_rel_path = "{}/{}".format(workspace_name, f.short_path)
-        
-        script_content.append('DEST_FILE="${{BUILD_WORKSPACE_DIRECTORY}}/{0}"'.format(dest_path))
-        script_content.append('mkdir -p "$(dirname "${DEST_FILE}")"')
-        script_content.append('cp -f "${{RUNFILES_DIR}}/{0}" "${{DEST_FILE}}"'.format(runfiles_rel_path))
-        script_content.append('chmod +w "${DEST_FILE}"')
-        script_content.append('echo "Updated: {0}"'.format(dest_path))
-        
-    executable_file = ctx.actions.declare_file(ctx.label.name + ".sh")
+    # Generate JSON config
+    config_file = ctx.actions.declare_file(ctx.label.name + ".json")
     ctx.actions.write(
+        output = config_file,
+        content = json.encode(struct(
+            mode = "sync",
+            files = [struct(
+                src = ctx.workspace_name + "/" + f.short_path if not f.short_path.startswith("../") else f.short_path[3:],
+                dest = mappings[f.path],
+            ) for f in unique_files.values()],
+        ))
+    )
+    
+    # Symlink the Go tool
+    executable_file = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.symlink(
         output = executable_file,
-        content = "\n".join(script_content) + "\n",
+        target_file = ctx.executable._syncer_tool,
         is_executable = True,
     )
+    
+    runfiles_files = list(unique_files.values()) + [config_file]
     
     return [
         DefaultInfo(
             executable = executable_file,
-            runfiles = ctx.runfiles(files = unique_files.values()),
+            runfiles = ctx.runfiles(files = runfiles_files),
+        ),
+        RunEnvironmentInfo(
+            environment = {
+                "CONFIG_JSON_PATH": ctx.workspace_name + "/" + config_file.short_path,
+            }
         ),
     ]
 
@@ -114,6 +96,11 @@ write_go_proto_srcs = rule(
         "srcs": attr.label_list(
             aspects = [collect_go_proto_srcs_aspect],
             mandatory = True,
+        ),
+        "_syncer_tool": attr.label(
+            default = "//tools/copy_generated_proto_sources",
+            executable = True,
+            cfg = "exec",
         ),
     },
     executable = True,
@@ -135,82 +122,38 @@ def _check_go_proto_srcs_impl(ctx):
     for f in generated_files:
         unique_files[f.path] = f
         
-    script_content = [
-        "#!/usr/bin/env bash",
-        "set -euo pipefail",
-        "",
-        '# Locate runfiles directory',
-        'if [ -z "${RUNFILES_DIR:-}" ]; then',
-        '  if [ -d "${BASH_SOURCE[0]}.runfiles" ]; then',
-        '    RUNFILES_DIR="${BASH_SOURCE[0]}.runfiles"',
-        '  elif [ -d "$(dirname "$0")/$(basename "$0").runfiles" ]; then',
-        '    RUNFILES_DIR="$(dirname "$0")/$(basename "$0").runfiles"',
-        '  elif [ -d "${TEST_SRCDIR:-}" ]; then',
-        '    RUNFILES_DIR="${TEST_SRCDIR}"',
-        '  else',
-        '    echo "Error: Could not locate runfiles directory." >&2',
-        '    exit 1',
-        '  fi',
-        'fi',
-        "",
-        "# Resolve the real path of the workspace root by following the MODULE.bazel symlink",
-        'WORKSPACE_MARKER_PATH="${RUNFILES_DIR}/_main/MODULE.bazel"',
-        'if [ ! -f "${WORKSPACE_MARKER_PATH}" ]; then',
-        '  # Fallback to finding MODULE.bazel in runfiles directory',
-        '  WORKSPACE_MARKER_PATH=$(find "${RUNFILES_DIR}" -name MODULE.bazel -print -quit)',
-        "fi",
-        "",
-        'if [ -z "${WORKSPACE_MARKER_PATH}" ] || [ ! -f "${WORKSPACE_MARKER_PATH}" ]; then',
-        '  echo "Error: Could not locate workspace marker file (MODULE.bazel) in runfiles." >&2',
-        "  exit 1",
-        "fi",
-        "",
-        'REAL_MARKER_PATH=$(readlink -f "${WORKSPACE_MARKER_PATH}" || realpath "${WORKSPACE_MARKER_PATH}")',
-        'WORKSPACE_ROOT=$(dirname "${REAL_MARKER_PATH}")',
-        "",
-        "FAILED=0",
-    ]
-    
-    workspace_name = ctx.workspace_name
-    
-    for path, f in unique_files.items():
-        dest_path = mappings[path]
-        runfiles_rel_path = "{}/{}".format(workspace_name, f.short_path)
-        
-        script_content.append('SOURCE_FILE="${{WORKSPACE_ROOT}}/{0}"'.format(dest_path))
-        script_content.append('GENERATED_FILE="${{RUNFILES_DIR}}/{0}"'.format(runfiles_rel_path))
-        script_content.append('if [ ! -f "${SOURCE_FILE}" ]; then')
-        script_content.append('  echo "Error: Source file does not exist in workspace: {0}" >&2'.format(dest_path))
-        script_content.append("  FAILED=1")
-        script_content.append('elif ! diff -u "${SOURCE_FILE}" "${GENERATED_FILE}" >/dev/null; then')
-        script_content.append('  echo "Error: Source file out of sync: {0}" >&2'.format(dest_path))
-        script_content.append('  echo "Diff:" >&2')
-        script_content.append('  diff -u "${SOURCE_FILE}" "${GENERATED_FILE}" || true')
-        script_content.append("  FAILED=1")
-        script_content.append("fi")
-        script_content.append("")
-        
-    script_content.append('if [ "${FAILED}" -ne 0 ]; then')
-    script_content.append('  echo "Verification failed. Run the update target to sync generated files." >&2')
-    script_content.append("  exit 1")
-    script_content.append("else")
-    script_content.append('  echo "All generated Go proto files are up to date!"')
-    script_content.append("  exit 0")
-    script_content.append("fi")
-    
-    executable_file = ctx.actions.declare_file(ctx.label.name + ".sh")
+    # Generate JSON config
+    config_file = ctx.actions.declare_file(ctx.label.name + ".json")
     ctx.actions.write(
+        output = config_file,
+        content = json.encode(struct(
+            mode = "check",
+            files = [struct(
+                src = ctx.workspace_name + "/" + f.short_path if not f.short_path.startswith("../") else f.short_path[3:],
+                dest = mappings[f.path],
+            ) for f in unique_files.values()],
+        ))
+    )
+    
+    # Symlink the Go tool
+    executable_file = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.symlink(
         output = executable_file,
-        content = "\n".join(script_content) + "\n",
+        target_file = ctx.executable._syncer_tool,
         is_executable = True,
     )
     
-    runfiles_files = list(unique_files.values()) + [ctx.file._workspace_marker]
+    runfiles_files = list(unique_files.values()) + [config_file, ctx.file._workspace_marker]
     
     return [
         DefaultInfo(
             executable = executable_file,
             runfiles = ctx.runfiles(files = runfiles_files),
+        ),
+        RunEnvironmentInfo(
+            environment = {
+                "CONFIG_JSON_PATH": ctx.workspace_name + "/" + config_file.short_path,
+            }
         ),
     ]
 
@@ -220,6 +163,11 @@ check_go_proto_srcs_test = rule(
         "srcs": attr.label_list(
             aspects = [collect_go_proto_srcs_aspect],
             mandatory = True,
+        ),
+        "_syncer_tool": attr.label(
+            default = "//tools/copy_generated_proto_sources",
+            executable = True,
+            cfg = "exec",
         ),
         "_workspace_marker": attr.label(
             default = "//:MODULE.bazel",

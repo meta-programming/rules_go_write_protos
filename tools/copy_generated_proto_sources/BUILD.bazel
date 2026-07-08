@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "copy_generated_proto_sources_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/meta-programming/rules_go_write_protos/tools/copy_generated_proto_sources",
+    visibility = ["//visibility:private"],
+    deps = ["@rules_go//go/runfiles"],
+)
+
+go_binary(
+    name = "copy_generated_proto_sources",
+    embed = [":copy_generated_proto_sources_lib"],
+    visibility = ["//visibility:public"],
+)
