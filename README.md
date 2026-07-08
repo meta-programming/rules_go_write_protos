@@ -57,7 +57,10 @@ write_go_proto_srcs(
 # Alternative: Mapping Go packages to custom directory structures.
 # (Note: mapping to "pkg/foo" here is equivalent to the default package-based output.
 # This is useful if you have .proto files in a "protos/foo" directory and want to
-# output Go source files in a different directory, like "pkg/foo").
+# output Go source files in a different directory, like "pkg/foo". This is because
+# standard Go toolchains (using go.mod) expect package files to reside in the
+# directory corresponding to their import path, whereas Bazel's rules_go is tolerant
+# of Go packages being compiled from any location in the repository).
 write_go_proto_srcs(
     name = "update_protos_custom",
     srcs = [
