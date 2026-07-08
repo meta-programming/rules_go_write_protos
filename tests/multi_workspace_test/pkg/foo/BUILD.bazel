@@ -23,3 +23,17 @@ write_go_proto_srcs(
         ":foo_go_proto",
     ],
 )
+
+write_go_proto_srcs(
+    name = "update_protos_out_dir",
+    srcs = [":foo_go_proto"],
+    out_dir = "pkg/foo/custom_out",
+)
+
+write_go_proto_srcs(
+    name = "update_protos_out_dir_map",
+    srcs = [":foo_go_proto"],
+    out_dir_map = {
+        "github.com/meta-programming/rules_go_write_protos/tests/integration_test/pkg/foo": "pkg/foo/custom_map",
+    },
+)

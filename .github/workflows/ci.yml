@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   test:
@@ -40,10 +40,16 @@ jobs:
         echo "build --disk_cache=~/.cache/bazel-disk" >> ~/.bazelrc
         echo "build --repository_cache=~/.cache/bazel-repo" >> ~/.bazelrc
 
-    - name: Run Bazel Build
-      run: |
-        bazel build //...
-
-    - name: Run Bazel Tests
+    - name: Run Root Workspace Tests
       run: |
         bazel test //...
+
+    - name: Run Multi-Workspace Integration Tests
+      run: |
+        cd tests/multi_workspace_test
+        bazel test //...
+
+    - name: Run Bootstrap Integration Tests
+      run: |
+        cd tests/bootstrap_test
+        ./run.sh
