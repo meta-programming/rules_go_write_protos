@@ -1,0 +1,17 @@
+load("@stardoc//stardoc:stardoc.bzl", "stardoc")
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+
+package(default_visibility = ["//visibility:public"])
+
+stardoc(
+    name = "defs_doc",
+    input = "//rules:defs.bzl",
+    out = "defs.md.gen",
+    deps = ["//rules:defs_bzl"],
+)
+
+diff_test(
+    name = "verify_docs",
+    file1 = "defs.md",
+    file2 = "defs.md.gen",
+)
