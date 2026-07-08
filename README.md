@@ -55,7 +55,9 @@ write_go_proto_srcs(
 )
 
 # Alternative: Mapping Go packages to custom directory structures.
-# (Note: mapping to "pkg/foo" here is equivalent to the default package-based output).
+# (Note: mapping to "pkg/foo" here is equivalent to the default package-based output.
+# This is useful if you have .proto files in a "protos/foo" directory and want to
+# output Go source files in a different directory, like "pkg/foo").
 write_go_proto_srcs(
     name = "update_protos_custom",
     srcs = [
