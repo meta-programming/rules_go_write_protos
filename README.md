@@ -8,17 +8,8 @@ When using `rules_go`, Go protobuf bindings (`.pb.go`) are generated inside Baze
 
 `rules_go_write_protos` solves this by automatically discovering all generated `.pb.go` files for a target using a custom Starlark aspect and copying them to their corresponding package folders in your source tree via `bazel run`. It also provides a drift-detection test to ensure checked-in files never get out of sync.
 
-### Relation to Aspect.dev's `write_source_files`
-
-Aspect.dev provides a standard [write_source_files](https://github.com/bazel-contrib/bazel-lib/blob/main/docs/write_source_files.md) rule (now maintained in `bazel-lib`) to write generated files back to the source tree.
-
-However, you cannot use `write_source_files` **directly** in your `BUILD` files for `rules_go` protobufs because:
-1. `write_source_files` expects direct outputs of Bazel targets.
-2. The generated `.pb.go` files are not direct outputs of a `go_proto_library` target (its default output is the compiled `.a` archive). Instead, they are exposed in the target's internal `go_generated_srcs` output group.
-
-`rules_go_write_protos` solves this by using a custom Starlark aspect to traverse the target dependency graph, extract the hidden generated files from the output group, and automatically map them back to their package locations.
-
 ---
+
 
 ## Quickstart
 
@@ -97,6 +88,16 @@ bazel test //:update_protos_test
 
 This test runs outside the sandbox, does not cache results, and will fail with a file diff if any checked-in files are out of sync.
 
+
+## FAQ
+
+### Why can't I just use Aspect.dev's `write_source_files` directly?
+
+Aspect.dev provides a standard [write_source_files](https://github.com/bazel-contrib/bazel-lib/blob/main/docs/write_source_files.md) rule (maintained in `bazel-lib`) to write generated files back to the source tree.
+
+However, you cannot use it **directly** for Go protobufs because `write_source_files` expects direct outputs of Bazel targets. The generated `.pb.go` files are not direct outputs of `go_proto_library` (its default output is the compiled `.a` archive). Instead, they are exposed in the target's internal `go_generated_srcs` output group.
+
+`rules_go_write_protos` solves this by using a custom Starlark aspect to traverse the target dependency graph, extract the hidden generated files from the output group, and automatically map them back to their package locations.
 
 ## License
 
