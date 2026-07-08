@@ -7,6 +7,10 @@ GoProtoSrcsInfo = provider(
 )
 
 def _collect_go_proto_srcs_impl(target, ctx):
+    # Only collect generated files from targets defined in the main repository.
+    if target.label.workspace_name != "":
+        return []
+
     files = []
     mappings = {}
     

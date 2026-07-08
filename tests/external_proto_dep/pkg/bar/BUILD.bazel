@@ -1,0 +1,15 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_go//proto:def.bzl", "go_proto_library")
+
+package(default_visibility = ["//visibility:public"])
+
+proto_library(
+    name = "bar_proto",
+    srcs = ["bar.proto"],
+)
+
+go_proto_library(
+    name = "bar_go_proto",
+    importpath = "github.com/meta-programming/rules_go_write_protos/tests/external_proto_dep/pkg/bar",
+    proto = ":bar_proto",
+)

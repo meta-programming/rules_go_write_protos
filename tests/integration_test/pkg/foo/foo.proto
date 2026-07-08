@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package pkg.foo;
+
+import "pkg/bar/bar.proto";
+
+option go_package = "github.com/meta-programming/rules_go_write_protos/tests/integration_test/pkg/foo";
+
+message Foo {
+    string name = 1;
+    pkg.bar.Bar bar = 2;
+}

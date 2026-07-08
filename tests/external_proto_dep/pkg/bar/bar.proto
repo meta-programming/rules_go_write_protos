@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package pkg.bar;
+
+option go_package = "github.com/meta-programming/rules_go_write_protos/tests/external_proto_dep/pkg/bar";
+
+message Bar {
+    string value = 1;
+}

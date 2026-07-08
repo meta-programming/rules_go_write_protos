@@ -1,0 +1,25 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_go//proto:def.bzl", "go_proto_library")
+load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_sources")
+
+package(default_visibility = ["//visibility:public"])
+
+proto_library(
+    name = "foo_proto",
+    srcs = ["foo.proto"],
+    deps = ["@external_proto_dep//pkg/bar:bar_proto"],
+)
+
+go_proto_library(
+    name = "foo_go_proto",
+    importpath = "github.com/meta-programming/rules_go_write_protos/tests/integration_test/pkg/foo",
+    proto = ":foo_proto",
+    deps = ["@external_proto_dep//pkg/bar:bar_go_proto"],
+)
+
+write_go_proto_sources(
+    name = "update_protos",
+    srcs = [
+        ":foo_go_proto",
+    ],
+)
