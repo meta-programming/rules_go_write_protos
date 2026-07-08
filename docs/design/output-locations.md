@@ -129,8 +129,10 @@ If we want to customize where these outputs are written in the source tree, we n
 
 ## Proposed Options
 
-### Option A: Package-Level Directory Override (Macro/Rule Level)
-The macro accepts an optional `out_dir` (or `dest_base_path`) argument, which overrides the base directory for all outputs compiled by targets in `srcs`.
+To enable maximum flexibility, the macro will support both options with aligned names:
+
+### 1. `out_dir` (Package-Level Override)
+Overrides the base directory for all outputs compiled by targets in `srcs`.
 
 #### API Design
 ```python
@@ -141,51 +143,41 @@ write_go_proto_srcs(
 )
 ```
 
-#### Starlark Implementation
-Inside the rule implementation (`_write_go_proto_srcs_impl`), we check if the `out_dir` attribute is specified. If so, we override the destination path of each generated file to use `out_dir` instead of the target's package:
-
-```python
-dest = mappings[f.path]
-if ctx.attr.out_dir:
-    dest = ctx.attr.out_dir + "/" + f.basename
-```
-*   **Pros**: Extremely simple Starlark implementation. Intuitive API.
-*   **Cons**: All files from all targets in `srcs` are written to the same directory (no target-level granularity).
-
 ---
 
-### Option B: Target-Level Mapping Dictionary
-The macro accepts a dictionary mapping `go_proto_library` targets to their custom destination paths.
+### 2. `out_dir_map` (Target-Level Mapping Dictionary)
+Allows mapping individual `go_proto_library` targets to different custom destination directories.
 
 #### API Design
 ```python
 write_go_proto_srcs(
     name = "update_protos",
-    # Maps specific targets to custom directories
-    srcs_mapping = {
+    srcs = [":foo_go_proto", ":bar_go_proto"],
+    out_dir_map = {
         ":foo_go_proto": "pkg/generated/foo",
         ":bar_go_proto": "pkg/generated/bar",
     },
 )
 ```
 
-#### Starlark Implementation
-1. We define an attribute `srcs_mapping = attr.label_keyed_string_dict(aspects = [collect_go_proto_srcs_aspect])`.
-2. Inside the rule implementation, we iterate over the dictionary keys, retrieve their `GoProtoSrcsInfo`, and map the files to the directories specified in the values:
+---
 
-```python
-for target, out_dir in ctx.attr.srcs_mapping.items():
-    if GoProtoSrcsInfo in target:
-        for f in target[GoProtoSrcsInfo].files.to_list():
-            mappings[f.path] = out_dir + "/" + f.basename
-```
-*   **Pros**: High granularity. Different targets can be synced to different custom locations within a single macro call.
-*   **Cons**: Slightly more complex to configure in the BUILD file.
+## Unmapped Target Behavior Policy
+
+If `out_dir_map` is specified but a source target is missing from the dictionary, we define a validation policy via `out_dir_map_mode` to clarify developer intent and ensure repository correctness.
+
+We propose the following validation modes for `out_dir_map_mode` (default is `"local"`):
+
+| Mode | Behavior | Description |
+| :--- | :--- | :--- |
+| `"strict"` | Fail on any unmapped target | Every target processed by the aspect (including external dependencies if tracked) must be explicitly mapped in `out_dir_map`. If any are missing, analysis fails. |
+| `"local"` | Fail on unmapped local targets | Every target in the local workspace must be mapped. External dependencies are ignored. Ideal for ensuring all workspace targets are accounted for. |
+| `"loose"` | Fallback to package directory | Unmapped targets silently fall back to using their target's package directory (the default behavior). |
 
 ---
 
-## Recommendation
+## FAQ
 
-We recommend **Option A (Package-Level Override)** for simplicity if most use-cases just require moving all package protobuf files to a single folder (like `pkg/generated`).
-
-If developers need to sync various targets to different directories within the same package macro, **Option B (Target-Level Mapping)** is the most flexible.
+**Q**: Is filtering out external workspace targets (like `@com_github_example_other_module`) *always* the right behavior?
+**A**: Generally yes, because 3rd-party dependencies should be fetched and compiled hermetically rather than duplicated in the local workspace source tree. However, under air-gapped or offline deployment constraints, teams might need to vendor all generated code locally.
+If this is required, we can introduce a boolean `sync_external_deps` attribute (defaulting to `False`). If set to `True`, the aspect will include external dependencies, and they can be mapped under a custom vendor folder (e.g. `vendor/github.com/example/other_module/...`).
