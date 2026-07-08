@@ -1,4 +1,4 @@
-# rules_go_proto_sync
+# rules_go_write_protos
 
 A Bazel 9 ruleset providing aspect-driven synchronization of Bazel-generated Go protobuf source files back into your project's source tree.
 
@@ -6,7 +6,7 @@ A Bazel 9 ruleset providing aspect-driven synchronization of Bazel-generated Go 
 
 When using `rules_go`, Go protobuf bindings (`.pb.go`) are generated inside Bazel's output sandbox (`bazel-out/`). While this is perfect for hermetic builds, it causes issues for standard Go tooling (e.g. `go build`, `go test`) and IDEs (VS Code, GoLand) which cannot locate the generated packages and display "unresolved import" errors.
 
-`rules_go_proto_sync` solves this by automatically discovering all generated `.pb.go` files for a target using a custom Starlark aspect and copying them to their corresponding package folders in your source tree via `bazel run`. It also provides a drift-detection test to ensure checked-in files never get out of sync.
+`rules_go_write_protos` solves this by automatically discovering all generated `.pb.go` files for a target using a custom Starlark aspect and copying them to their corresponding package folders in your source tree via `bazel run`. It also provides a drift-detection test to ensure checked-in files never get out of sync.
 
 ---
 
@@ -21,14 +21,14 @@ module(
     version = "0.0.0",
 )
 
-# Fetch rules_go_proto_sync from Git (or BCR when available)
+# Fetch rules_go_write_protos from Git (or BCR when available)
 git_override(
-    module_name = "rules_go_proto_sync",
-    remote = "https://github.com/gonzojive/rules_go_proto_sync.git",
+    module_name = "rules_go_write_protos",
+    remote = "https://github.com/gonzojive/rules_go_write_protos.git",
     commit = "[latest-commit-hash]", # Replace with the latest commit hash
 )
 
-bazel_dep(name = "rules_go_proto_sync", version = "0.0.0")
+bazel_dep(name = "rules_go_write_protos", version = "0.0.0")
 bazel_dep(name = "rules_go", version = "0.61.1")
 bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "protobuf", version = "33.4")
@@ -59,7 +59,7 @@ go_proto_library(
 In your root `BUILD.bazel` file:
 
 ```python
-load("@rules_go_proto_sync//rules:defs.bzl", "write_go_proto_sources")
+load("@rules_go_write_protos//rules:defs.bzl", "write_go_proto_sources")
 
 write_go_proto_sources(
     name = "update_protos",

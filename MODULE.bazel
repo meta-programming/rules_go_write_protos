@@ -1,5 +1,5 @@
 module(
-    name = "rules_go_proto_sync",
+    name = "rules_go_write_protos",
     version = "0.0.0",
 )
 
