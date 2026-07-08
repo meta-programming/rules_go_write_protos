@@ -87,16 +87,6 @@ bazel test //:update_protos_test
 
 This test runs outside the sandbox, does not cache results, and will fail with a file diff if any checked-in files are out of sync.
 
----
-
-## Fast Builds (Precompiled Protoc)
-
-To avoid compiling `protoc` from source (which can slow down initial Bazel runs significantly), add the following to your `.bazelrc`:
-
-```text
-# Use prebuilt protoc binaries from GitHub releases
-common --@protobuf//bazel/toolchains:prefer_prebuilt_protoc
-```
 
 ## License
 
